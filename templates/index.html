@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'status-running': '#22c55e',
+                        'status-completed': '#3b82f6',
+                        'status-failed': '#ef4444',
+                        'status-stopped': '#f59e0b',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-4xl font-bold mb-8 text-center text-gray-800">Task Manager</h1>
+        <div class="flex justify-center space-x-4 mb-8">
+            <button id="refresh-button" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition duration-300 ease-in-out transform hover:scale-105">
+                Refresh
+            </button>
+        </div>
+        <div id="task-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+    </div>
+
+    <script>
+        document.getElementById('refresh-button').addEventListener('click', refreshTasks);
+
+        function refreshTasks() {
+            fetch('/status')
+                .then(response => response.json())
+                .then(tasks => {
+                    const taskList = document.getElementById('task-list');
+                    taskList.innerHTML = '';
+
+                    const sortedTasks = Object.keys(tasks).sort((a, b) => {
+                        const statusOrder = ['Running', 'Completed', 'Failed', 'Stopped', 'Timeout'];
+                        return statusOrder.indexOf(tasks[a].status) - statusOrder.indexOf(tasks[b].status);
+                    });
+
+                    for (const taskId of sortedTasks) {
+                        const task = tasks[taskId];
+                        const card = document.createElement('div');
+                        card.className = `fade-in bg-white rounded-lg shadow-md overflow-hidden transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg`;
+                        card.style.borderLeft = `4px solid ${getStatusColor(task.status)}`;
+
+                        const cardContent = `
+                            <div class="p-6">
+                                <div class="flex justify-between items-center mb-4">
+                                    <div>
+                                        <h3 class="text-2xl font-bold text-gray-800">${task.artist}</h3>
+                                        <p class="text-sm text-gray-500">ID: ${taskId}</p>
+                                    </div>
+                                    <span class="px-2 py-1 text-sm font-semibold rounded-full" style="background-color: ${getStatusColor(task.status)}; color: white;">
+                                        ${task.status}
+                                    </span>
+                                </div>
+                                <p class="text-gray-600 mb-4">${task.output || 'No output available'}</p>
+                                ${task.status === 'Running' ? `
+                                    <button onclick="stopTask('${taskId}')" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded transition duration-300 ease-in-out">
+                                        Stop
+                                    </button>
+                                ` : ''}
+                            </div>
+                        `;
+
+                        card.innerHTML = cardContent;
+                        taskList.appendChild(card);
+                    }
+                });
+        }
+
+        function getStatusColor(status) {
+            const colors = {
+                'Running': '#22c55e',
+                'Completed': '#3b82f6',
+                'Failed': '#ef4444',
+                'Stopped': '#f59e0b',
+                'Timeout': '#f59e0b'
+            };
+            return colors[status] || '#6b7280';
+        }
+
+        function stopTask(taskId) {
+            fetch(`/stop/${taskId}`, { method: 'POST' })
+                .then(response => response.json())
+                .then(() => refreshTasks());
+        }
+
+        // 页面加载时刷新任务
+        refreshTasks();
+    </script>
+</body>
+</html>

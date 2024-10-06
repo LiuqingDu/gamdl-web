@@ -1,14 +1,9 @@
 from __future__ import annotations
 
-import inspect
-import json
 import logging
 from enum import Enum
 from pathlib import Path
 
-import click
-
-from . import __version__
 from .apple_music_api import AppleMusicApi
 from .constants import *
 from .downloader import Downloader
@@ -19,334 +14,45 @@ from .downloader_song_legacy import DownloaderSongLegacy
 from .enums import CoverFormat, DownloadMode, MusicVideoCodec, PostQuality, RemuxMode
 from .itunes_api import ItunesApi
 
-apple_music_api_sig = inspect.signature(AppleMusicApi.__init__)
-downloader_sig = inspect.signature(Downloader.__init__)
-downloader_song_sig = inspect.signature(DownloaderSong.__init__)
-downloader_music_video_sig = inspect.signature(DownloaderMusicVideo.__init__)
-downloader_post_sig = inspect.signature(DownloaderPost.__init__)
-
-
-def get_param_string(param: click.Parameter) -> str:
-    if isinstance(param.default, Enum):
-        return param.default.value
-    elif isinstance(param.default, Path):
-        return str(param.default)
-    else:
-        return param.default
-
-
-def write_default_config_file(ctx: click.Context):
-    ctx.params["config_path"].parent.mkdir(parents=True, exist_ok=True)
-    config_file = {
-        param.name: get_param_string(param)
-        for param in ctx.command.params
-        if param.name not in EXCLUDED_CONFIG_FILE_PARAMS
-    }
-    ctx.params["config_path"].write_text(json.dumps(config_file, indent=4))
-
-
-def load_config_file(
-    ctx: click.Context,
-    param: click.Parameter,
-    no_config_file: bool,
-) -> click.Context:
-    if no_config_file:
-        return ctx
-    if not ctx.params["config_path"].exists():
-        write_default_config_file(ctx)
-    config_file = dict(json.loads(ctx.params["config_path"].read_text()))
-    for param in ctx.command.params:
-        if (
-            config_file.get(param.name) is not None
-            and not ctx.get_parameter_source(param.name)
-            == click.core.ParameterSource.COMMANDLINE
-        ):
-            ctx.params[param.name] = param.type_cast_value(ctx, config_file[param.name])
-    return ctx
-
-
-@click.command()
-@click.help_option("-h", "--help")
-@click.version_option(__version__, "-v", "--version")
-# CLI specific options
-@click.argument(
-    "urls",
-    nargs=-1,
-    type=str,
-    required=True,
-)
-@click.option(
-    "--disable-music-video-skip",
-    is_flag=True,
-    help="Don't skip downloading music videos in albums/playlists.",
-)
-@click.option(
-    "--save-cover",
-    "-s",
-    is_flag=True,
-    help="Save cover as a separate file.",
-)
-@click.option(
-    "--overwrite",
-    is_flag=True,
-    help="Overwrite existing files.",
-)
-@click.option(
-    "--read-urls-as-txt",
-    "-r",
-    is_flag=True,
-    help="Interpret URLs as paths to text files containing URLs separated by newlines",
-)
-@click.option(
-    "--save-playlist",
-    is_flag=True,
-    help="Save a M3U8 playlist file when downloading a playlist.",
-)
-@click.option(
-    "--synced-lyrics-only",
-    is_flag=True,
-    help="Download only the synced lyrics.",
-)
-@click.option(
-    "--no-synced-lyrics",
-    is_flag=True,
-    help="Don't download the synced lyrics.",
-)
-@click.option(
-    "--config-path",
-    type=Path,
-    default=Path.home() / ".gamdl" / "config.json",
-    help="Path to config file.",
-)
-@click.option(
-    "--log-level",
-    type=str,
-    default="INFO",
-    help="Log level.",
-)
-@click.option(
-    "--print-exceptions",
-    is_flag=True,
-    help="Print exceptions.",
-)
-# API specific options
-@click.option(
-    "--cookies-path",
-    "-c",
-    type=Path,
-    default=apple_music_api_sig.parameters["cookies_path"].default,
-    help="Path to .txt cookies file.",
-)
-@click.option(
-    "--language",
-    "-l",
-    type=str,
-    default=apple_music_api_sig.parameters["language"].default,
-    help="Metadata language as an ISO-2A language code (don't always work for videos).",
-)
-# Downloader specific options
-@click.option(
-    "--output-path",
-    "-o",
-    type=Path,
-    default=downloader_sig.parameters["output_path"].default,
-    help="Path to output directory.",
-)
-@click.option(
-    "--temp-path",
-    type=Path,
-    default=downloader_sig.parameters["temp_path"].default,
-    help="Path to temporary directory.",
-)
-@click.option(
-    "--wvd-path",
-    type=Path,
-    default=downloader_sig.parameters["wvd_path"].default,
-    help="Path to .wvd file.",
-)
-@click.option(
-    "--nm3u8dlre-path",
-    type=str,
-    default=downloader_sig.parameters["nm3u8dlre_path"].default,
-    help="Path to N_m3u8DL-RE binary.",
-)
-@click.option(
-    "--mp4decrypt-path",
-    type=str,
-    default=downloader_sig.parameters["mp4decrypt_path"].default,
-    help="Path to mp4decrypt binary.",
-)
-@click.option(
-    "--ffmpeg-path",
-    type=str,
-    default=downloader_sig.parameters["ffmpeg_path"].default,
-    help="Path to FFmpeg binary.",
-)
-@click.option(
-    "--mp4box-path",
-    type=str,
-    default=downloader_sig.parameters["mp4box_path"].default,
-    help="Path to MP4Box binary.",
-)
-@click.option(
-    "--download-mode",
-    type=DownloadMode,
-    default=downloader_sig.parameters["download_mode"].default,
-    help="Download mode.",
-)
-@click.option(
-    "--remux-mode",
-    type=RemuxMode,
-    default=downloader_sig.parameters["remux_mode"].default,
-    help="Remux mode.",
-)
-@click.option(
-    "--cover-format",
-    type=CoverFormat,
-    default=downloader_sig.parameters["cover_format"].default,
-    help="Cover format.",
-)
-@click.option(
-    "--template-folder-album",
-    type=str,
-    default=downloader_sig.parameters["template_folder_album"].default,
-    help="Template folder for tracks that are part of an album.",
-)
-@click.option(
-    "--template-folder-compilation",
-    type=str,
-    default=downloader_sig.parameters["template_folder_compilation"].default,
-    help="Template folder for tracks that are part of a compilation album.",
-)
-@click.option(
-    "--template-file-single-disc",
-    type=str,
-    default=downloader_sig.parameters["template_file_single_disc"].default,
-    help="Template file for the tracks that are part of a single-disc album.",
-)
-@click.option(
-    "--template-file-multi-disc",
-    type=str,
-    default=downloader_sig.parameters["template_file_multi_disc"].default,
-    help="Template file for the tracks that are part of a multi-disc album.",
-)
-@click.option(
-    "--template-folder-no-album",
-    type=str,
-    default=downloader_sig.parameters["template_folder_no_album"].default,
-    help="Template folder for the tracks that are not part of an album.",
-)
-@click.option(
-    "--template-file-no-album",
-    type=str,
-    default=downloader_sig.parameters["template_file_no_album"].default,
-    help="Template file for the tracks that are not part of an album.",
-)
-@click.option(
-    "--template-file-playlist",
-    type=str,
-    default=downloader_sig.parameters["template_file_playlist"].default,
-    help="Template file for the M3U8 playlist.",
-)
-@click.option(
-    "--template-date",
-    type=str,
-    default=downloader_sig.parameters["template_date"].default,
-    help="Date tag template.",
-)
-@click.option(
-    "--exclude-tags",
-    type=str,
-    default=downloader_sig.parameters["exclude_tags"].default,
-    help="Comma-separated tags to exclude.",
-)
-@click.option(
-    "--cover-size",
-    type=int,
-    default=downloader_sig.parameters["cover_size"].default,
-    help="Cover size.",
-)
-@click.option(
-    "--truncate",
-    type=int,
-    default=downloader_sig.parameters["truncate"].default,
-    help="Maximum length of the file/folder names.",
-)
-# DownloaderSong specific options
-@click.option(
-    "--codec-song",
-    type=SongCodec,
-    default=downloader_song_sig.parameters["codec"].default,
-    help="Song codec.",
-)
-@click.option(
-    "--synced-lyrics-format",
-    type=SyncedLyricsFormat,
-    default=downloader_song_sig.parameters["synced_lyrics_format"].default,
-    help="Synced lyrics format.",
-)
-# DownloaderMusicVideo specific options
-@click.option(
-    "--codec-music-video",
-    type=MusicVideoCodec,
-    default=downloader_music_video_sig.parameters["codec"].default,
-    help="Music video codec.",
-)
-# DownloaderPost specific options
-@click.option(
-    "--quality-post",
-    type=PostQuality,
-    default=downloader_post_sig.parameters["quality"].default,
-    help="Post video quality.",
-)
-# This option should always be last
-@click.option(
-    "--no-config-file",
-    "-n",
-    is_flag=True,
-    callback=load_config_file,
-    help="Do not use a config file.",
-)
 def main(
-    urls: list[str],
-    disable_music_video_skip: bool,
-    save_cover: bool,
-    overwrite: bool,
-    read_urls_as_txt: bool,
-    save_playlist: bool,
-    synced_lyrics_only: bool,
-    no_synced_lyrics: bool,
-    config_path: Path,
-    log_level: str,
-    print_exceptions: bool,
-    cookies_path: Path,
-    language: str,
-    output_path: Path,
-    temp_path: Path,
-    wvd_path: Path,
-    nm3u8dlre_path: str,
-    mp4decrypt_path: str,
-    ffmpeg_path: str,
-    mp4box_path: str,
-    download_mode: DownloadMode,
-    remux_mode: RemuxMode,
-    cover_format: CoverFormat,
-    template_folder_album: str,
-    template_folder_compilation: str,
-    template_file_single_disc: str,
-    template_file_multi_disc: str,
-    template_folder_no_album: str,
-    template_file_no_album: str,
-    template_file_playlist: str,
-    template_date: str,
-    exclude_tags: str,
-    cover_size: int,
-    truncate: int,
-    codec_song: SongCodec,
-    synced_lyrics_format: SyncedLyricsFormat,
-    codec_music_video: MusicVideoCodec,
-    quality_post: PostQuality,
-    no_config_file: bool,
+    urls: list[str] = [],
+    disable_music_video_skip: bool = False,
+    save_cover: bool = False,
+    overwrite: bool = False,
+    read_urls_as_txt: bool = False,
+    save_playlist: bool = False,
+    synced_lyrics_only: bool = False,
+    no_synced_lyrics: bool = False,
+    log_level: str = "INFO",
+    print_exceptions: bool = False,
+    cookies_path: Path = Path("./cookie.txt"),
+    language: str = "en-US",
+    output_path: Path = Path("./Apple Music"),
+    temp_path: Path = Path("./temp"),
+    wvd_path: Path = None,
+    nm3u8dlre_path: str = "N_m3u8DL-RE",
+    mp4decrypt_path: str = "mp4decrypt",
+    ffmpeg_path: str = "ffmpeg",
+    mp4box_path: str = "MP4Box",
+    download_mode: DownloadMode = DownloadMode.YTDLP,
+    remux_mode: RemuxMode = RemuxMode.FFMPEG,
+    cover_format: CoverFormat = CoverFormat.JPG,
+    template_folder_album: str = "{album_artist}/{album}",
+    template_folder_compilation: str = "Compilations/{album}",
+    template_file_single_disc: str = "{track:02d} {title}",
+    template_file_multi_disc: str = "{disc}-{track:02d} {title}",
+    template_folder_no_album: str = "{artist}/Unknown Album",
+    template_file_no_album: str = "{title}",
+    template_file_playlist: str = "Playlists/{playlist_title}",
+    template_date: str = "%Y-%m-%dT%H:%M:%SZ",
+    exclude_tags: str = None,
+    cover_size: int = 1200,
+    truncate: int = None,
+    codec_song: SongCodec = SongCodec.AAC_LEGACY,
+    synced_lyrics_format: SyncedLyricsFormat = SyncedLyricsFormat.LRC,
+    codec_music_video: MusicVideoCodec = MusicVideoCodec.H264,
+    quality_post: PostQuality = PostQuality.BEST,
+    storefront: str = 'us',
 ):
     logging.basicConfig(
         format="[%(levelname)-8s %(asctime)s] %(message)s",
@@ -360,6 +66,7 @@ def main(
         return
     apple_music_api = AppleMusicApi(
         cookies_path,
+        storefront,
         language=language,
     )
     itunes_api = ItunesApi(
