@@ -1,16 +1,16 @@
 [project]
 name = "gamdl"
-description = "A Python CLI app for downloading Apple Music songs, music videos and post videos."
-requires-python = ">=3.9"
+description = "A Python CLI app for downloading Apple Music songs/music videos/posts."
+requires-python = ">=3.8"
 authors = [{ name = "glomatico" }]
 dependencies = [
     "click",
-    "colorama",
     "inquirerpy",
     "m3u8",
     "mutagen",
     "pillow",
     "pywidevine",
+    "pyyaml",
     "yt-dlp",
 ]
 readme = "README.md"

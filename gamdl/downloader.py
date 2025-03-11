@@ -24,7 +24,6 @@ from .enums import CoverFormat, DownloadMode, RemuxMode
 from .hardcoded_wvd import HARDCODED_WVD
 from .itunes_api import ItunesApi
 from .models import DownloadQueue, UrlInfo
-from .utils import raise_response_exception
 
 
 class Downloader:
@@ -173,18 +172,19 @@ class Downloader:
         self,
         artist: dict,
     ) -> typing.Generator[dict, None, None]:
-        media_type = inquirer.select(
-            message=f'Select which type to download for artist "{artist["attributes"]["name"]}":',
-            choices=[
-                Choice(name="Albums", value="albums"),
-                Choice(
-                    name="Music Videos",
-                    value="music-videos",
-                ),
-            ],
-            validate=lambda result: artist["relationships"].get(result, {}).get("data"),
-            invalid_message="The artist doesn't have any items of this type",
-        ).execute()
+        # media_type = inquirer.select(
+        #     message=f'Select which type to download for artist "{artist["attributes"]["name"]}":',
+        #     choices=[
+        #         Choice(name="Albums", value="albums"),
+        #         Choice(
+        #             name="Music Videos",
+        #             value="music-videos",
+        #         ),
+        #     ],
+        #     validate=lambda result: artist["relationships"].get(result, {}).get("data"),
+        #     invalid_message="The artist doesn't have any items of this type",
+        # ).execute()
+        media_type = "albums"
         if media_type == "albums":
             yield from self.select_albums_from_artist(
                 artist["relationships"]["albums"]["data"]
@@ -198,25 +198,26 @@ class Downloader:
         self,
         albums: list[dict],
     ) -> typing.Generator[dict, None, None]:
-        choices = [
-            Choice(
-                name=" | ".join(
-                    [
-                        f'{album["attributes"]["trackCount"]:03d}',
-                        f'{album["attributes"]["releaseDate"]:<10}',
-                        f'{album["attributes"].get("contentRating", "None").title():<8}',
-                        f'{album["attributes"]["name"]}',
-                    ]
-                ),
-                value=album,
-            )
-            for album in albums
-        ]
-        selected = inquirer.select(
-            message="Select which albums to download: (Track Count | Release Date | Rating | Title)",
-            choices=choices,
-            multiselect=True,
-        ).execute()
+        # choices = [
+        #     Choice(
+        #         name=" | ".join(
+        #             [
+        #                 f'{album["attributes"]["trackCount"]:03d}',
+        #                 f'{album["attributes"]["releaseDate"]:<10}',
+        #                 f'{album["attributes"].get("contentRating", "None").title():<8}',
+        #                 f'{album["attributes"]["name"]}',
+        #             ]
+        #         ),
+        #         value=album,
+        #     )
+        #     for album in albums
+        # ]
+        # selected = inquirer.select(
+        #     message="Select which albums to download: (Track Count | Release Date | Rating | Title)",
+        #     choices=choices,
+        #     multiselect=True,
+        # ).execute()
+        selected = albums
         for album in selected:
             for track in self.apple_music_api.get_album(album["id"])["relationships"][
                 "tracks"
@@ -256,7 +257,7 @@ class Downloader:
         playlist_track: int,
     ) -> dict:
         tags = {
-            "playlist_artist": playlist_attributes.get("curatorName", "Apple Music"),
+            "playlist_artist": playlist_attributes["curatorName"],
             "playlist_id": playlist_attributes["playParams"]["id"],
             "playlist_title": playlist_attributes["name"],
             "playlist_track": playlist_track,
@@ -420,10 +421,7 @@ class Downloader:
             ),
         )
 
-    def get_cover_file_extension(self, cover_url: str) -> str | None:
-        cover_bytes = self.get_url_response_bytes(cover_url)
-        if cover_bytes is None:
-            return None
+    def get_cover_file_extension(self, cover_url: str) -> str:
         image_obj = Image.open(io.BytesIO(self.get_url_response_bytes(cover_url)))
         image_format = image_obj.format.lower()
         return IMAGE_FILE_EXTENSION_MAP.get(image_format, f".{image_format}")
@@ -459,12 +457,7 @@ class Downloader:
     @functools.lru_cache()
     def get_url_response_bytes(url: str) -> bytes:
         response = requests.get(url)
-        if response.status_code == 200:
-            return response.content
-        elif response.status_code == 404:
-            return None
-        else:
-            raise_response_exception(response)
+        response.raise_for_status()
         return response.content
 
     def apply_tags(
@@ -507,18 +500,16 @@ class Downloader:
             "cover" not in self.exclude_tags_list
             and self.cover_format != CoverFormat.RAW
         ):
-            cover_bytes = self.get_url_response_bytes(cover_url)
-            if cover_bytes is not None:
-                mp4_tags["covr"] = [
-                    MP4Cover(
-                        self.get_url_response_bytes(cover_url),
-                        imageformat=(
-                            MP4Cover.FORMAT_JPEG
-                            if self.cover_format == CoverFormat.JPG
-                            else MP4Cover.FORMAT_PNG
-                        ),
-                    )
-                ]
+            mp4_tags["covr"] = [
+                MP4Cover(
+                    self.get_url_response_bytes(cover_url),
+                    imageformat=(
+                        MP4Cover.FORMAT_JPEG
+                        if self.cover_format == CoverFormat.JPG
+                        else MP4Cover.FORMAT_PNG
+                    ),
+                )
+            ]
         mp4 = MP4(path)
         mp4.clear()
         mp4.update(mp4_tags)

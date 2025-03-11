@@ -5,3 +5,10 @@ __pycache__
 !pyproject.toml
 !README.md
 !requirements.txt
+!app.py
+!templates
+!Dockerfile
+!.dockerignore
+!ffmpeg
+!mp4decrypt
+!run_test.sh

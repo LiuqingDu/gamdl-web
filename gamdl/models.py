@@ -25,7 +25,5 @@ class Lyrics:
 @dataclass
 class StreamInfo:
     stream_url: str = None
-    widevine_pssh: str = None
-    playready_pssh: str = None
-    fairplay_key: str = None
+    pssh: str = None
     codec: str = None

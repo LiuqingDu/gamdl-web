@@ -7,12 +7,10 @@ from enum import Enum
 from pathlib import Path
 
 import click
-import colorama
 
 from . import __version__
 from .apple_music_api import AppleMusicApi
 from .constants import *
-from .custom_formatter import CustomFormatter
 from .downloader import Downloader
 from .downloader_music_video import DownloaderMusicVideo
 from .downloader_post import DownloaderPost
@@ -20,7 +18,6 @@ from .downloader_song import DownloaderSong
 from .downloader_song_legacy import DownloaderSongLegacy
 from .enums import CoverFormat, DownloadMode, MusicVideoCodec, PostQuality, RemuxMode
 from .itunes_api import ItunesApi
-from .utils import color_text
 
 apple_music_api_sig = inspect.signature(AppleMusicApi.__init__)
 downloader_sig = inspect.signature(Downloader.__init__)
@@ -351,21 +348,16 @@ def main(
     quality_post: PostQuality,
     no_config_file: bool,
 ):
-    colorama.just_fix_windows_console()
+    logging.basicConfig(
+        format="[%(levelname)-8s %(asctime)s] %(message)s",
+        datefmt="%H:%M:%S",
+    )
     logger = logging.getLogger(__name__)
     logger.setLevel(log_level)
-    stream_handler = logging.StreamHandler()
-    stream_handler.setFormatter(CustomFormatter())
-    logger.addHandler(stream_handler)
     logger.info("Starting Gamdl")
-    while not cookies_path.exists():
-        cookies_path_str = click.prompt(
-            X_NOT_FOUND_STRING.format("Cookies file", cookies_path.absolute())
-            + ". Move it to that location or drag and drop it here. Then, press enter to continue",
-            default=str(cookies_path),
-            show_default=False,
-        )
-        cookies_path = Path(cookies_path_str.strip('"'))
+    if not cookies_path.exists():
+        logger.critical(X_NOT_FOUND_STRING.format("Cookies file", cookies_path))
+        return
     apple_music_api = AppleMusicApi(
         cookies_path,
         language=language,
@@ -448,7 +440,7 @@ def main(
             logger.critical(X_NOT_FOUND_STRING.format("N_m3u8DL-RE", nm3u8dlre_path))
             return
         if not downloader.mp4decrypt_path_full:
-            logger.warning(
+            logger.warn(
                 X_NOT_FOUND_STRING.format("mp4decrypt", mp4decrypt_path)
                 + ", music videos will not be downloaded"
             )
@@ -456,9 +448,9 @@ def main(
         else:
             skip_mv = False
         if codec_song not in LEGACY_CODECS:
-            logger.warning(
-                "You have chosen an experimental codec. "
-                "They're not guaranteed to work due to API limitations."
+            logger.warn(
+                "You have chosen a non-legacy codec. Support for non-legacy codecs are not guaranteed, "
+                "as most of the songs cannot be downloaded when using non-legacy codecs."
             )
     error_count = 0
     if read_urls_as_txt:
@@ -468,7 +460,7 @@ def main(
                 _urls.extend(Path(url).read_text(encoding="utf-8").splitlines())
         urls = _urls
     for url_index, url in enumerate(urls, start=1):
-        url_progress = color_text(f"URL {url_index}/{len(urls)}", colorama.Style.DIM)
+        url_progress = f"URL {url_index}/{len(urls)}"
         try:
             logger.info(f'({url_progress}) Checking "{url}"')
             url_info = downloader.get_url_info(url)
@@ -484,10 +476,7 @@ def main(
         for download_index, track_metadata in enumerate(
             download_queue_tracks_metadata, start=1
         ):
-            queue_progress = color_text(
-                f"Track {download_index}/{len(download_queue_tracks_metadata)} from URL {url_index}/{len(urls)}",
-                colorama.Style.DIM,
-            )
+            queue_progress = f"Track {download_index}/{len(download_queue_tracks_metadata)} from URL {url_index}/{len(urls)}"
             try:
                 remuxed_path = None
                 if download_queue.playlist_attributes:
@@ -535,13 +524,6 @@ def main(
                     )
                     cover_url = downloader.get_cover_url(track_metadata)
                     cover_file_extesion = downloader.get_cover_file_extension(cover_url)
-                    if cover_file_extesion:
-                        cover_path = downloader_music_video.get_cover_path(
-                            final_path,
-                            cover_file_extesion,
-                        )
-                    else:
-                        cover_path = None
                     cover_path = downloader_song.get_cover_path(
                         final_path,
                         cover_file_extesion,
@@ -560,16 +542,13 @@ def main(
                             )
                             logger.debug("Getting decryption key")
                             decryption_key = downloader_song_legacy.get_decryption_key(
-                                stream_info.widevine_pssh, track_metadata["id"]
+                                stream_info.pssh, track_metadata["id"]
                             )
                         else:
                             stream_info = downloader_song.get_stream_info(
                                 track_metadata
                             )
-                            if (
-                                not stream_info.stream_url
-                                or not stream_info.widevine_pssh
-                            ):
+                            if not stream_info.stream_url or not stream_info.pssh:
                                 logger.warning(
                                     f"({queue_progress}) Song is not downloadable or is not"
                                     " available in the chosen codec, skipping"
@@ -577,7 +556,7 @@ def main(
                                 continue
                             logger.debug("Getting decryption key")
                             decryption_key = downloader.get_decryption_key(
-                                stream_info.widevine_pssh, track_metadata["id"]
+                                stream_info.pssh, track_metadata["id"]
                             )
                         encrypted_path = downloader_song.get_encrypted_path(
                             track_metadata["id"]
@@ -664,13 +643,10 @@ def main(
                     final_path = downloader.get_final_path(tags, ".m4v")
                     cover_url = downloader.get_cover_url(track_metadata)
                     cover_file_extesion = downloader.get_cover_file_extension(cover_url)
-                    if cover_file_extesion:
-                        cover_path = downloader_music_video.get_cover_path(
-                            final_path,
-                            cover_file_extesion,
-                        )
-                    else:
-                        cover_path = None
+                    cover_path = downloader_music_video.get_cover_path(
+                        final_path,
+                        cover_file_extesion,
+                    )
                     if final_path.exists() and not overwrite:
                         logger.warning(
                             f'({queue_progress}) Music video already exists at "{final_path}", skipping'
@@ -682,10 +658,10 @@ def main(
                             downloader_music_video.get_stream_info_audio(m3u8_data),
                         )
                         decryption_key_video = downloader.get_decryption_key(
-                            stream_info_video.widevine_pssh, track_metadata["id"]
+                            stream_info_video.pssh, track_metadata["id"]
                         )
                         decryption_key_audio = downloader.get_decryption_key(
-                            stream_info_audio.widevine_pssh, track_metadata["id"]
+                            stream_info_audio.pssh, track_metadata["id"]
                         )
                         encrypted_path_video = (
                             downloader_music_video.get_encrypted_path_video(
@@ -744,13 +720,6 @@ def main(
                     final_path = downloader.get_final_path(tags, ".m4v")
                     cover_url = downloader.get_cover_url(track_metadata)
                     cover_file_extesion = downloader.get_cover_file_extension(cover_url)
-                    if cover_file_extesion:
-                        cover_path = downloader_music_video.get_cover_path(
-                            final_path,
-                            cover_file_extesion,
-                        )
-                    else:
-                        cover_path = None
                     cover_path = downloader_music_video.get_cover_path(
                         final_path,
                         cover_file_extesion,
@@ -765,7 +734,7 @@ def main(
                         )
                         logger.debug(f'Downloading to "{remuxed_path}"')
                         downloader.download_ytdlp(remuxed_path, stream_url)
-                if synced_lyrics_only or not save_cover or cover_path is None:
+                if synced_lyrics_only or not save_cover:
                     pass
                 elif cover_path.exists() and not overwrite:
                     logger.debug(f'Cover already exists at "{cover_path}", skipping')
