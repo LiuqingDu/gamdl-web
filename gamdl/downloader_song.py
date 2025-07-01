@@ -311,7 +311,7 @@ class DownloaderSong:
     def get_remuxed_path(self, track_id: str, file_format: MediaFileFormat) -> Path:
         return (
             self.downloader.temp_path
-            / f"{track_id}_remuxed.{"m4a" if file_format == MediaFileFormat.M4A else "mp4"}"
+            / f"{track_id}_remuxed.{'m4a' if file_format == MediaFileFormat.M4A else 'mp4'}"
         )
 
     def fix_key_id(self, encrypted_path: Path):
