@@ -173,18 +173,19 @@ class Downloader:
         self,
         artist: dict,
     ) -> typing.Generator[dict, None, None]:
-        media_type = inquirer.select(
-            message=f'Select which type to download for artist "{artist["attributes"]["name"]}":',
-            choices=[
-                Choice(name="Albums", value="albums"),
-                Choice(
-                    name="Music Videos",
-                    value="music-videos",
-                ),
-            ],
-            validate=lambda result: artist["relationships"].get(result, {}).get("data"),
-            invalid_message="The artist doesn't have any items of this type",
-        ).execute()
+        # media_type = inquirer.select(
+        #     message=f'Select which type to download for artist "{artist["attributes"]["name"]}":',
+        #     choices=[
+        #         Choice(name="Albums", value="albums"),
+        #         Choice(
+        #             name="Music Videos",
+        #             value="music-videos",
+        #         ),
+        #     ],
+        #     validate=lambda result: artist["relationships"].get(result, {}).get("data"),
+        #     invalid_message="The artist doesn't have any items of this type",
+        # ).execute()
+        media_type = "albums"
         if media_type == "albums":
             yield from self.select_albums_from_artist(
                 artist["relationships"]["albums"]["data"]
@@ -198,25 +199,26 @@ class Downloader:
         self,
         albums: list[dict],
     ) -> typing.Generator[dict, None, None]:
-        choices = [
-            Choice(
-                name=" | ".join(
-                    [
-                        f'{album["attributes"]["trackCount"]:03d}',
-                        f'{album["attributes"]["releaseDate"]:<10}',
-                        f'{album["attributes"].get("contentRating", "None").title():<8}',
-                        f'{album["attributes"]["name"]}',
-                    ]
-                ),
-                value=album,
-            )
-            for album in albums
-        ]
-        selected = inquirer.select(
-            message="Select which albums to download: (Track Count | Release Date | Rating | Title)",
-            choices=choices,
-            multiselect=True,
-        ).execute()
+        # choices = [
+        #     Choice(
+        #         name=" | ".join(
+        #             [
+        #                 f'{album["attributes"]["trackCount"]:03d}',
+        #                 f'{album["attributes"]["releaseDate"]:<10}',
+        #                 f'{album["attributes"].get("contentRating", "None").title():<8}',
+        #                 f'{album["attributes"]["name"]}',
+        #             ]
+        #         ),
+        #         value=album,
+        #     )
+        #     for album in albums
+        # ]
+        # selected = inquirer.select(
+        #     message="Select which albums to download: (Track Count | Release Date | Rating | Title)",
+        #     choices=choices,
+        #     multiselect=True,
+        # ).execute()
+        selected = albums
         for album in selected:
             for track in self.apple_music_api.get_album(album["id"])["relationships"][
                 "tracks"
