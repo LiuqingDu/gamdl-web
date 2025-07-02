@@ -1,12 +1,24 @@
 import re
 import sqlite3
 import subprocess
+import sys
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from flask import Flask, request, jsonify, render_template
 from pathlib import Path
 import os
 from contextlib import contextmanager
 import threading
+
+# 配置日志输出到标准输出，这样Docker可以看到
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # 从环境变量获取基础路径或使用默认值
 CONFIG_PATH = Path(os.getenv('GAMDL_CONFIG_PATH', '/config'))
@@ -17,9 +29,12 @@ DOWNLOADS_PATH = Path(os.getenv('GAMDL_DOWNLOADS_PATH', '/downloads'))
 DOWNLOADS_PATH.mkdir(parents=True, exist_ok=True)
 COOKIES_PATH = CONFIG_PATH / "cookies.txt"
 if not COOKIES_PATH.exists():
-    print("\033[91m错误: 在 {} 找不到cookies文件\033[0m".format(COOKIES_PATH))
-    exit(1)
+    logger.error(f"错误: 在 {COOKIES_PATH} 找不到cookies文件")
+    sys.exit(1)
 
+logger.info(f"配置路径: {CONFIG_PATH}")
+logger.info(f"下载路径: {DOWNLOADS_PATH}")
+logger.info(f"Cookies路径: {COOKIES_PATH}")
 
 app = Flask(__name__)
 
@@ -252,15 +267,14 @@ def process_pending_task():
         
     # task是一个包含 (artist_id, type, name, language) 的元组
     artist_id, url_type, name, language = task
-    # 组装完整URL
-    url = assemble_url(url_type, name, artist_id)
-
-    if not url:
-        return
     
     try:
         # 组装完整URL
         url = assemble_url(url_type, name, artist_id)
+        if not url:
+            logger.error(f"无法组装URL: {url_type}/{name}/{artist_id}")
+            return
+            
         # 准备下载命令
         output_path = DOWNLOADS_PATH
         cookies_path = COOKIES_PATH
@@ -273,6 +287,11 @@ def process_pending_task():
         
     except Exception as e:
         # 如果设置失败则标记为错误
+        logger.error(f"处理待处理任务时发生异常: {str(e)}")
+        try:
+            url = assemble_url(url_type, name, artist_id)
+        except:
+            url = f"https://music.apple.com/us/{url_type}/{name}/{artist_id}"
         save_task(artist_id, url, language, -1)
 
 def download_process(artist_id, url, language, comm):
@@ -287,24 +306,36 @@ def download_process(artist_id, url, language, comm):
     """
     global last_command_output
     try:
+        logger.info(f"开始下载任务: {artist_id}, URL: {url}, 语言: {language}")
         # 更新状态为下载中
         save_task(artist_id, url, language, 1)
         
+        logger.info(f"执行命令: {comm}")
         process = subprocess.Popen(comm, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
         # 逐行读取输出
         for line in process.stdout:
             line = line.strip()
-            last_command_output = line
+            with last_command_output_lock:
+                last_command_output = line
+            # 同时输出到Docker日志
+            logger.info(f"[{artist_id}] {line}")
             
         process.wait()
         status = 2 if process.returncode == 0 else -1
         save_task(artist_id, url, language, status)
         
+        if status == 2:
+            logger.info(f"任务 {artist_id} 下载成功")
+        else:
+            logger.error(f"任务 {artist_id} 下载失败，返回码: {process.returncode}")
+        
     except Exception as e:
+        logger.error(f"任务 {artist_id} 下载过程中发生异常: {str(e)}")
         save_task(artist_id, url, language, -1)
     finally:
         # 任务完成时清理last_command_output
-        last_command_output = None
+        with last_command_output_lock:
+            last_command_output = None
     
     process_pending_task()
 
@@ -315,14 +346,18 @@ def run_task():
     """
     url = request.args.get('url')
     if not url:
+        logger.warning("收到无效请求: 缺少URL参数")
         return jsonify({'error': '需要提供URL'}), 400
 
     name = extract_artist_name(url)
     artist_id = extract_artist_id(url)
     if not artist_id:
+        logger.warning(f"收到无效URL: {url}")
         return jsonify({'error': '无效的URL'}), 400
 
     language = request.args.get('language', 'zh-CN')
+    logger.info(f"添加新任务: {name} (ID: {artist_id}), 语言: {language}")
+    
     if save_task(artist_id, url, language):
         process_pending_task()
         return jsonify({
@@ -330,6 +365,7 @@ def run_task():
             'message': f'任务已添加到队列，名称: {name}'
         }), 200
     else:
+        logger.error(f"保存任务失败: {url}")
         return jsonify({'error': '无效的URL格式'}), 400
 
 @app.route('/status')
@@ -363,11 +399,16 @@ def status():
             'language': language_map.get(task[4], task[4])  # 使用映射或原始值
         } for task in tasks]
         
+        # 线程安全地获取last_command_output
+        with last_command_output_lock:
+            current_log = last_command_output
+        
         return jsonify({
             'tasks': formatted_tasks,
-            'log': last_command_output
+            'log': current_log
         })
     except Exception as e:
+        logger.error(f"获取状态时发生异常: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/stop/<artist_id>', methods=['POST'])
@@ -378,16 +419,20 @@ def stop_task(artist_id):
     Args:
         artist_id (str): 艺术家ID
     """
+    logger.info(f"尝试停止任务: {artist_id}")
     task = get_task(artist_id)
     if not task:
+        logger.warning(f"找不到任务: {artist_id}")
         return jsonify({'error': '找不到任务'}), 404
         
     url_type, name, status, language = task
     if status not in [0]:
+        logger.warning(f"任务 {artist_id} 不在等待状态，无法停止")
         return jsonify({'error': '任务不在等待状态，无法停止'}), 400
         
     url = assemble_url(url_type, name, artist_id)
     save_task(artist_id, url, language, -2)
+    logger.info(f"任务 {artist_id} ({name}) 已停止")
     return jsonify({
         'status': '已停止',
         'message': f'任务 {name} 已停止'
@@ -401,17 +446,21 @@ def restart_task(artist_id):
     Args:
         artist_id (str): 艺术家ID
     """
+    logger.info(f"尝试重启任务: {artist_id}")
     task = get_task(artist_id)
     if not task:
+        logger.warning(f"找不到任务: {artist_id}")
         return jsonify({'error': '找不到任务'}), 404
         
     url_type, name, status, language = task
     if status not in [-1, -2, 2]:
+        logger.warning(f"任务 {artist_id} 当前状态不允许重启")
         return jsonify({'error': '任务无法重启，当前状态不允许重启'}), 400
         
     url = assemble_url(url_type, name, artist_id)
     save_task(artist_id, url, language, 0)
     process_pending_task()
+    logger.info(f"任务 {artist_id} ({name}) 已重启")
     return jsonify({
         'status': '已重启',
         'message': f'任务 {name} 已重启并加入队列'
@@ -423,12 +472,15 @@ def reset_tasks():
     重置所有任务为等待状态的路由（除了正在运行的任务）
     """
     try:
-        reset_all_tasks_to_pending()
+        logger.info("重置所有非运行中的任务")
+        count = reset_all_tasks_to_pending()
+        logger.info(f"重置了 {count} 个任务")
         return jsonify({
             'status': 'success',
             'message': '所有非运行中的任务已重置为等待状态'
         }), 200
     except Exception as e:
+        logger.error(f"重置任务失败: {str(e)}")
         return jsonify({'error': f'重置失败: {str(e)}'}), 500
 
 @app.route('/updateLanguage/<artist_id>', methods=['POST'])
@@ -444,16 +496,19 @@ def update_language(artist_id):
         new_language = data.get('language')
         
         if not new_language:
+            logger.warning(f"更新语言失败: 缺少语言参数")
             return jsonify({'error': '需要提供语言参数'}), 400
         
         # 验证语言代码的有效性
         valid_languages = ['zh-CN', 'en-US']
         if new_language not in valid_languages:
+            logger.warning(f"不支持的语言代码: {new_language}")
             return jsonify({'error': f'不支持的语言代码: {new_language}'}), 400
             
         # 获取当前任务信息
         task = get_task(artist_id)
         if not task:
+            logger.warning(f"找不到任务: {artist_id}")
             return jsonify({'error': '找不到任务'}), 404
             
         url_type, name, status, current_language = task
@@ -462,12 +517,14 @@ def update_language(artist_id):
         url = assemble_url(url_type, name, artist_id)
         save_task(artist_id, url, new_language, status)
         
+        logger.info(f"任务 {artist_id} ({name}) 语言已从 {current_language} 更新为 {new_language}")
         return jsonify({
             'status': '语言已更新',
             'message': f'任务 {name} 的语言已更新为 {new_language}'
         }), 200
         
     except Exception as e:
+        logger.error(f"更新语言失败: {str(e)}")
         return jsonify({'error': f'更新失败: {str(e)}'}), 500
 
 @app.route('/')
@@ -478,9 +535,14 @@ def index():
     return render_template("index.html")
 
 if __name__ == '__main__':
+    logger.info("启动 Apple Music 下载器服务")
     # 初始化数据库并创建表
     init_db()
+    logger.info("数据库初始化完成")
     # 重置所有任务为等待状态，除了当前正在运行的任务
     reset_tasks_to_pending_from_running()
+    logger.info("重置运行中的任务完成")
     process_pending_task()
+    logger.info("开始处理待处理任务")
+    logger.info("服务启动完成，监听端口 5800")
     app.run(host='0.0.0.0', port=5800)
