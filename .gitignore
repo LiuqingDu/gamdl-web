@@ -6,3 +6,10 @@ __pycache__
 !pyproject.toml
 !README.md
 !uv.lock
+!.github
+!app.py
+!templates
+!Dockerfile
+!.dockerignore
+!binaries
+!run_test.sh
