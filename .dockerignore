@@ -1,0 +1,8 @@
+# 排除所有文件
+/*
+
+# 只包含必要的文件和目录
+!gamdl/**
+!pyproject.toml
+!uv.lock
+!binaries/**

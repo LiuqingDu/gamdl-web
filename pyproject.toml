@@ -2,12 +2,12 @@
 name = "gamdl"
 version = "2.8"
 description = "A command-line app for downloading Apple Music songs, music videos and post videos."
-readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"
 requires-python = ">=3.10"
 dependencies = [
     "async-lru>=2.0.5",
     "click>=8.3.0",
+    "flask>=3.1.2",
     "httpx>=0.28.1",
     "inquirerpy>=0.3.4",
     "m3u8>=6.0.0",
@@ -22,3 +22,10 @@ Repository = "https://github.com/glomatico/gamdl"
 
 [project.scripts]
 gamdl = "gamdl.cli.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatchling.build.targets.wheel]
+packages = ["gamdl"]
