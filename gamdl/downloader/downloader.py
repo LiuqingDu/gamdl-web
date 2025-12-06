@@ -141,23 +141,24 @@ class AppleMusicDownloader:
                 ]
             )
 
-        media_type = await inquirer.select(
-            message=f'Select which type to download for artist "{artist_metadata["attributes"]["name"]}":',
-            choices=[
-                Choice(
-                    name="Albums",
-                    value="albums",
-                ),
-                Choice(
-                    name="Music Videos",
-                    value="music-videos",
-                ),
-            ],
-            validate=lambda result: artist_metadata["relationships"]
-            .get(result, {})
-            .get("data"),
-            invalid_message="The artist doesn't have any items of this type",
-        ).execute_async()
+        # media_type = await inquirer.select(
+        #     message=f'Select which type to download for artist "{artist_metadata["attributes"]["name"]}":',
+        #     choices=[
+        #         Choice(
+        #             name="Albums",
+        #             value="albums",
+        #         ),
+        #         Choice(
+        #             name="Music Videos",
+        #             value="music-videos",
+        #         ),
+        #     ],
+        #     validate=lambda result: artist_metadata["relationships"]
+        #     .get(result, {})
+        #     .get("data"),
+        #     invalid_message="The artist doesn't have any items of this type",
+        # ).execute_async()
+        media_type = "albums"
 
         if media_type == "albums":
             return await self.get_artist_albums_download_items(
@@ -172,26 +173,27 @@ class AppleMusicDownloader:
         self,
         albums_metadata: list[dict],
     ) -> list[DownloadItem]:
-        choices = [
-            Choice(
-                name=" | ".join(
-                    [
-                        f'{album["attributes"]["trackCount"]:03d}',
-                        f'{album["attributes"]["releaseDate"]:<10}',
-                        f'{album["attributes"].get("contentRating", "None").title():<8}',
-                        f'{album["attributes"]["name"]}',
-                    ]
-                ),
-                value=album,
-            )
-            for album in albums_metadata
-            if album.get("attributes")
-        ]
-        selected = await inquirer.select(
-            message="Select which albums to download: (Track Count | Release Date | Rating | Title)",
-            choices=choices,
-            multiselect=True,
-        ).execute_async()
+        # choices = [
+        #     Choice(
+        #         name=" | ".join(
+        #             [
+        #                 f'{album["attributes"]["trackCount"]:03d}',
+        #                 f'{album["attributes"]["releaseDate"]:<10}',
+        #                 f'{album["attributes"].get("contentRating", "None").title():<8}',
+        #                 f'{album["attributes"]["name"]}',
+        #             ]
+        #         ),
+        #         value=album,
+        #     )
+        #     for album in albums_metadata
+        #     if album.get("attributes")
+        # ]
+        # selected = await inquirer.select(
+        #     message="Select which albums to download: (Track Count | Release Date | Rating | Title)",
+        #     choices=choices,
+        #     multiselect=True,
+        # ).execute_async()
+        selected = albums_metadata
 
         download_items = []
 

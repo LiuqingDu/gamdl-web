@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apple Music 下载器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'status-downloading': '#22c55e',
+                        'status-completed': '#3b82f6',
+                        'status-failed': '#ef4444',
+                        'status-stopped': '#f59e0b',
+                        'status-pending': '#6b7280',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-4xl font-bold mb-8 text-center text-gray-800">Apple Music 下载器</h1>
+        <div class="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4 mb-8">
+            <input type="text" id="url-input" placeholder="请输入 Apple Music 链接" class="border rounded py-2 px-4 w-full sm:w-96">
+            <select id="language-select" class="border rounded py-2 px-4 w-full sm:w-auto">
+                <option value="zh-CN">中文</option>
+                <option value="en-US">English</option>
+            </select>
+            <button id="download-button" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition duration-300 ease-in-out transform hover:scale-105 w-full sm:w-auto">
+                下载
+            </button>
+            <button id="refresh-button" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition duration-300 ease-in-out transform hover:scale-105 w-full sm:w-auto">
+                刷新
+            </button>
+            <button id="reset-all-button" class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded transition duration-300 ease-in-out transform hover:scale-105 w-full sm:w-auto">
+                重新下载所有任务
+            </button>
+        </div>
+        <div id="log-area" class="mb-8 p-4 bg-gray-800 text-gray-100 rounded-lg hidden"></div>
+        <div id="task-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+    </div>
+
+    <script>
+        document.getElementById('refresh-button').addEventListener('click', refreshTasks);
+        document.getElementById('download-button').addEventListener('click', startDownload);
+        document.getElementById('reset-all-button').addEventListener('click', resetAllTasks);
+
+        function startDownload() {
+            const url = document.getElementById('url-input').value;
+            const language = document.getElementById('language-select').value;
+            fetch(`/run?url=${encodeURIComponent(url)}&language=${language}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert('下载失败: ' + data.error);
+                    } else {
+                        alert(data.message || '任务已添加到队列');
+                        refreshTasks();
+                    }
+                })
+                .catch(error => {
+                    alert('下载失败: ' + error);
+                });
+        }
+
+        function refreshTasks() {
+            fetch('/status')
+                .then(response => response.json())
+                .then(data => {
+                    const taskList = document.getElementById('task-list');
+                    const logArea = document.getElementById('log-area');
+                    taskList.innerHTML = '';
+
+                    // 更新日志区域
+                    if (data.log) {
+                        logArea.textContent = data.log;
+                        logArea.classList.remove('hidden');
+                    } else {
+                        logArea.classList.add('hidden');
+                    }
+
+                    // 按状态排序任务
+                    const sortedTasks = data.tasks.sort((a, b) => {
+                        const statusOrder = ['下载中', '等待中', '成功', '错误', '已停止'];
+                        return statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status);
+                    });
+
+                    sortedTasks.forEach(task => {
+                        const card = document.createElement('div');
+                        card.className = `fade-in bg-white rounded-lg shadow-md overflow-hidden transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg`;
+                        card.style.borderLeft = `4px solid ${getStatusColor(task.status)}`;
+
+                        // 仅对"等待中"状态显示停止按钮
+                        // 仅对"错误"、"已停止"或"成功"状态显示重启按钮
+                        const showStopButton = task.status === '等待中';
+                        const showRestartButton = task.status === '错误' || task.status === '已停止' || task.status === '成功';
+
+                        const cardContent = `
+                            <div class="p-6">
+                                <div class="flex justify-between items-center mb-4">
+                                    <div>
+                                        <h3 class="text-2xl font-bold text-gray-800">${task.name || '未知'}</h3>
+                                        <p class="text-sm text-gray-500">ID: ${task.artist_id}</p>
+                                        <p class="text-sm text-gray-500">类型: ${task.type}</p>
+                                        <div class="flex items-center space-x-2">
+                                            <span class="text-sm text-gray-500">语言:</span>
+                                            <select onchange="updateTaskLanguage('${task.artist_id}', this.value)" class="text-sm border rounded px-2 py-1 bg-white">
+                                                <option value="zh-CN" ${isLanguageSelected(task.language, 'zh-CN') ? 'selected' : ''}>中文</option>
+                                                <option value="en-US" ${isLanguageSelected(task.language, 'en-US') ? 'selected' : ''}>English</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <span class="px-2 py-1 text-sm font-semibold rounded-full" style="background-color: ${getStatusColor(task.status)}; color: white;">
+                                        ${task.status}
+                                    </span>
+                                </div>
+                                <div class="flex space-x-2">
+                                    ${showStopButton ? `
+                                        <button onclick="stopTask('${task.artist_id}')" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded transition duration-300 ease-in-out">
+                                            停止
+                                        </button>
+                                    ` : ''}
+                                    ${showRestartButton ? `
+                                        <button onclick="restartTask('${task.artist_id}')" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded transition duration-300 ease-in-out">
+                                            重启
+                                        </button>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        `;
+
+                        card.innerHTML = cardContent;
+                        taskList.appendChild(card);
+                    });
+                });
+        }
+
+        function getStatusColor(status) {
+            const colors = {
+                '下载中': '#22c55e',
+                '成功': '#3b82f6',
+                '错误': '#ef4444',
+                '已停止': '#f59e0b',
+                '等待中': '#6b7280'
+            };
+            return colors[status] || '#6b7280';
+        }
+
+        function stopTask(taskId) {
+            fetch(`/stop/${taskId}`, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert('停止失败: ' + data.error);
+                    } else {
+                        alert(data.message || '任务已停止');
+                        refreshTasks();
+                    }
+                })
+                .catch(error => {
+                    alert('停止失败: ' + error);
+                });
+        }
+
+        function restartTask(taskId) {
+            fetch(`/restart/${taskId}`, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert('重启失败: ' + data.error);
+                    } else {
+                        alert(data.message || '任务已重启');
+                        refreshTasks();
+                    }
+                })
+                .catch(error => {
+                    alert('重启失败: ' + error);
+                });
+        }
+
+        function resetAllTasks() {
+            // 第一次确认
+            if (!confirm('确定要重新下载所有任务吗？这将把所有非运行中的任务重置为等待状态。')) {
+                return;
+            }
+            
+            // 第二次确认
+            if (!confirm('这是最后一次确认。确定要继续吗？')) {
+                return;
+            }
+            
+            fetch('/resetAllTasks', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert('重新下载失败: ' + data.error);
+                    } else {
+                        alert(data.message || '所有任务已重置为等待状态，将开始重新下载');
+                        refreshTasks();
+                    }
+                })
+                .catch(error => {
+                    alert('重新下载失败: ' + error);
+                });
+        }
+
+        function updateTaskLanguage(taskId, newLanguage) {
+            fetch(`/updateLanguage/${taskId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    language: newLanguage
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert('更新语言失败: ' + data.error);
+                    // 刷新页面以恢复正确的状态
+                    refreshTasks();
+                } else {
+                    alert(data.message || '语言已更新');
+                }
+            })
+            .catch(error => {
+                alert('更新语言失败: ' + error);
+                // 刷新页面以恢复正确的状态
+                refreshTasks();
+            });
+        }
+
+        function isLanguageSelected(taskLanguage, languageCode) {
+            // 处理映射后的语言名称和原始语言代码
+            const languageMap = {
+                'zh-CN': ['中文', 'zh-CN'],
+                'en-US': ['English', 'en-US']
+            };
+            return languageMap[languageCode] && languageMap[languageCode].includes(taskLanguage);
+        }
+
+        // 页面加载时刷新任务
+        refreshTasks();
+
+        // 每5秒刷新一次任务
+        setInterval(refreshTasks, 5000);
+    </script>
+</body>
+</html>
