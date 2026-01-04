@@ -1,0 +1,27 @@
+services:
+  gamdl-web:
+    build: .
+    container_name: gamdl-web
+    ports:
+      - "5800:5800"
+    volumes:
+      # 配置文件目录（包含cookies.txt和tasks.db）
+      - ./config:/config
+      # 下载目录
+      - ./downloads:/downloads
+    environment:
+      - GAMDL_CONFIG_PATH=/config
+      - GAMDL_DOWNLOADS_PATH=/downloads
+      - GAMDL_HOST=0.0.0.0
+      - GAMDL_PORT=5800
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5800/api/health')"]
+      interval: 30s
+      timeout: 3s
+      retries: 3

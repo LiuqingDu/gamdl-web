@@ -1,360 +1,199 @@
-# Gamdl (Glomatico's Apple Music Downloader)
+# Gamdl Web (Apple Music Downloader)
 
-[![PyPI version](https://img.shields.io/pypi/v/gamdl?color=blue)](https://pypi.org/project/gamdl/)
-[![Python versions](https://img.shields.io/pypi/pyversions/gamdl)](https://pypi.org/project/gamdl/)
-[![License](https://img.shields.io/github/license/glomatico/gamdl)](https://github.com/glomatico/gamdl/blob/main/LICENSE)
-[![Downloads](https://img.shields.io/pypi/dm/gamdl)](https://pypi.org/project/gamdl/)
+基于 [Gamdl](https://github.com/glomatico/gamdl) 的 Web 版本，提供简洁的 Web 界面进行 Apple Music 歌曲下载。
 
-A command-line app for downloading Apple Music songs, music videos and post videos.
+## ✨ 功能特性
 
-**Join our Discord Server:** <https://discord.gg/aBjMEZ9tnq>
+- 🎵 **高质量音乐下载** - 支持 AAC 256kbps 等多种编码格式
+- 🌐 **Web 界面** - 简洁现代的 Web 管理界面
+- 📋 **任务管理** - 串行下载队列，支持任务的创建、取消、重启、删除
+- 🌍 **多语言支持** - 支持中文和英文元数据
+- 🐳 **Docker 部署** - 开箱即用的容器化部署方案
+- 🔄 **自动恢复** - 程序重启后自动继续未完成的任务
 
-## ✨ Features
+## 📁 项目结构
 
-- 🎵 **High-Quality Songs** - Download songs in AAC 256kbps and other codecs
-- 🎬 **High-Quality Music Videos** - Download music videos in resolutions up to 4K
-- 📝 **Synced Lyrics** - Download synced lyrics in LRC, SRT, or TTML formats
-- 🏷️ **Rich Metadata** - Automatic tagging with comprehensive metadata
-- 🎤 **Artist Support** - Download all albums or music videos from an artist
-- ⚙️ **Highly Customizable** - Extensive configuration options for advanced users
+```
+gamdl-web/
+├── gamdl/                      # 核心下载库
+│   ├── api/                    # Apple Music API
+│   ├── downloader/             # 下载器实现
+│   ├── interface/              # 接口层
+│   └── cli/                    # CLI工具
+│
+├── web/                        # Web应用
+│   ├── main.py                 # FastAPI应用入口
+│   ├── config.py               # 配置管理
+│   ├── database.py             # 数据库连接
+│   ├── models.py               # 数据模型
+│   ├── schemas.py              # API请求/响应模型
+│   ├── routers/                # API路由
+│   │   ├── tasks.py            # 任务管理API
+│   │   └── settings.py         # 设置API
+│   ├── services/               # 服务层
+│   │   └── task_queue.py       # 任务队列管理
+│   └── static/                 # 前端静态文件
+│       ├── index.html
+│       ├── css/style.css
+│       └── js/app.js
+│
+├── Dockerfile                  # Docker构建文件
+├── docker-compose.yml          # Docker Compose配置
+└── pyproject.toml              # 项目配置
+```
 
-## 📋 Prerequisites
+## 🚀 快速开始
 
-### Required
+### Docker 部署（推荐）
 
-- **Python 3.10 or higher**
-- **Apple Music Cookies** - Export your browser cookies in Netscape format while logged in with an active subscription at the Apple Music website:
-  - **Firefox**: [Export Cookies](https://addons.mozilla.org/addon/export-cookies-txt)
-  - **Chromium**: [Get cookies.txt LOCALLY](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc)
-- **FFmpeg** - Must be in your system PATH
-  - **Windows**: [AnimMouse's FFmpeg Builds](https://github.com/AnimMouse/ffmpeg-stable-autobuild/releases)
-  - **Linux**: [John Van Sickle's FFmpeg Builds](https://johnvansickle.com/ffmpeg/)
-
-### Optional
-
-Add these tools to your system PATH for additional features:
-
-- **[mp4decrypt](https://www.bento4.com/downloads/)** - Required for `mp4box` remux mode, music videos, and experimental codecs
-- **[MP4Box](https://gpac.io/downloads/gpac-nightly-builds/)** - Required for `mp4box` remux mode
-- **[N_m3u8DL-RE](https://github.com/nilaoda/N_m3u8DL-RE/releases/latest)** - Required for `nm3u8dlre` download mode, which is faster than the default downloader
-- **[Wrapper & amdecrypt](#️-wrapper--amdecrypt)** - For downloading songs in ALAC and other experimental codecs without API limitations
-
-## 📦 Installation
-
-**Install Gamdl via pipx:**
-
-[pipx](https://pipx.pypa.io/stable/installation/) is recommended for installing Gamdl to avoid dependency conflicts, but you can also use pip.
+1. **克隆项目**
 
 ```bash
-pipx install gamdl
+git clone https://github.com/LiuqingDu/gamdl-web.git
+cd gamdl-web
 ```
 
-**Setup cookies:**
-
-1. Place your cookies file in the working directory as `cookies.txt`, or
-2. Specify the path using `--cookies-path` or in the config file
-
-## 🚀 Usage
+2. **准备配置目录**
 
 ```bash
-gamdl [OPTIONS] URLS...
+mkdir -p config downloads
 ```
 
-### Supported URL Types
+3. **准备 Cookies 文件**
 
-- Songs
-- Albums (Public/Library)
-- Playlists (Public/Library)
-- Music Videos
-- Artists
-- Post Videos
+将你的 Apple Music cookies 文件放到 `config/cookies.txt`，或者启动后通过 Web 界面设置。
 
-### Examples
+获取 Cookies 的方法：
+- **Firefox**: [Export Cookies](https://addons.mozilla.org/addon/export-cookies-txt)
+- **Chromium**: [Get cookies.txt LOCALLY](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc)
 
-**Download a song:**
+4. **启动服务**
 
 ```bash
-gamdl "https://music.apple.com/us/album/never-gonna-give-you-up-2022-remaster/1624945511?i=1624945512"
+docker-compose up -d
 ```
 
-**Download an album:**
+5. **访问 Web 界面**
+
+打开浏览器访问 http://localhost:5800
+
+### 本地开发
+
+1. **安装依赖**
 
 ```bash
-gamdl "https://music.apple.com/us/album/whenever-you-need-somebody-2022-remaster/1624945511"
+# 使用 uv（推荐）
+uv sync
+
+# 或使用 pip
+pip install -e .
 ```
 
-**Download from an artist:**
+2. **运行开发服务器**
 
 ```bash
-gamdl "https://music.apple.com/us/artist/rick-astley/669771"
+# 设置环境变量
+export GAMDL_CONFIG_PATH=./config
+export GAMDL_DOWNLOADS_PATH=./downloads
+
+# 启动服务
+python -m web.main
 ```
 
-**Interactive Prompt Controls:**
+## 📖 使用说明
 
-| Key            | Action            |
-| -------------- | ----------------- |
-| **Arrow keys** | Move selection    |
-| **Space**      | Toggle selection  |
-| **Ctrl + A**   | Select all        |
-| **Enter**      | Confirm selection |
+### Web 界面
 
-## ⚙️ Configuration
+1. **添加任务**：在输入框中粘贴 Apple Music 链接，选择语言，点击"下载"
+2. **管理任务**：
+   - 等待中的任务可以取消
+   - 完成/错误/已取消的任务可以重启或删除
+   - 任何任务都可以修改语言
+   - 点击"商店"按钮可以在新窗口打开 Apple Music 页面
+3. **设置**：点击右上角齿轮图标，可以配置 Cookies
 
-Configure Gamdl using command-line arguments or a config file.
+### 支持的链接类型
 
-**Config file location:**
+- 歌手页面 (Artist)
+- 专辑 (Album)
+- 播放列表 (Playlist)
+- 单曲 (Song)
+- MV (Music Video)
 
-- Linux: `~/.gamdl/config.ini`
-- Windows: `%USERPROFILE%\.gamdl\config.ini`
+### 任务状态说明
 
-The file is created automatically on first run. Command-line arguments override config values.
+| 状态 | 说明 |
+|------|------|
+| 等待中 | 任务已加入队列，等待下载 |
+| 下载中 | 正在下载中 |
+| 完成 | 下载成功 |
+| 错误 | 下载失败 |
+| 已取消 | 用户手动取消 |
 
-### Configuration Options
+## ⚙️ 配置说明
 
-| Option                          | Description                     | Default                                        |
-| ------------------------------- | ------------------------------- | ---------------------------------------------- |
-| **General Options**             |                                 |                                                |
-| `--read-urls-as-txt`, `-r`      | Read URLs from text files       | `false`                                        |
-| `--config-path`                 | Config file path                | `<home>/.gamdl/config.ini`                     |
-| `--log-level`                   | Logging level                   | `INFO`                                         |
-| `--log-file`                    | Log file path                   | -                                              |
-| `--no-exceptions`               | Don't print exceptions          | `false`                                        |
-| `--no-config-file`, `-n`        | Don't use a config file         | `false`                                        |
-| **Apple Music Options**         |                                 |                                                |
-| `--cookies-path`, `-c`          | Cookies file path               | `./cookies.txt`                                |
-| `--wrapper-account-url`         | Wrapper account URL             | `http://127.0.0.1:30020`                       |
-| `--language`, `-l`              | Metadata language               | `en-US`                                        |
-| **Output Options**              |                                 |                                                |
-| `--output-path`, `-o`           | Output directory path           | `./Apple Music`                                |
-| `--temp-path`                   | Temporary directory path        | `.`                                            |
-| `--wvd-path`                    | .wvd file path                  | -                                              |
-| `--overwrite`                   | Overwrite existing files        | `false`                                        |
-| `--save-cover`, `-s`            | Save cover as separate file     | `false`                                        |
-| `--save-playlist`               | Save M3U8 playlist file         | `false`                                        |
-| **Download Options**            |                                 |                                                |
-| `--nm3u8dlre-path`              | N_m3u8DL-RE executable path     | `N_m3u8DL-RE`                                  |
-| `--mp4decrypt-path`             | mp4decrypt executable path      | `mp4decrypt`                                   |
-| `--ffmpeg-path`                 | FFmpeg executable path          | `ffmpeg`                                       |
-| `--mp4box-path`                 | MP4Box executable path          | `MP4Box`                                       |
-| `--amdecrypt-path`              | amdecrypt executable path       | `amdecrypt`                                    |
-| `--use-wrapper`                 | Use wrapper and amdecrypt       | `false`                                        |
-| `--wrapper-decrypt-ip`          | Wrapper decryption server IP    | `127.0.0.1:10020`                              |
-| `--download-mode`               | Download mode                   | `ytdlp`                                        |
-| `--remux-mode`                  | Remux mode                      | `ffmpeg`                                       |
-| `--cover-format`                | Cover format                    | `jpg`                                          |
-| **Template Options**            |                                 |                                                |
-| `--album-folder-template`       | Album folder template           | `{album_artist}/{album}`                       |
-| `--compilation-folder-template` | Compilation folder template     | `Compilations/{album}`                         |
-| `--no-album-folder-template`    | No album folder template        | `{artist}/Unknown Album`                       |
-| `--single-disc-file-template`   | Single disc file template       | `{track:02d} {title}`                          |
-| `--multi-disc-file-template`    | Multi disc file template        | `{disc}-{track:02d} {title}`                   |
-| `--no-album-file-template`      | No album file template          | `{title}`                                      |
-| `--playlist-file-template`      | Playlist file template          | `Playlists/{playlist_artist}/{playlist_title}` |
-| `--date-tag-template`           | Date tag template               | `%Y-%m-%dT%H:%M:%SZ`                           |
-| `--exclude-tags`                | Comma-separated tags to exclude | -                                              |
-| `--cover-size`                  | Cover size in pixels            | `1200`                                         |
-| `--truncate`                    | Max filename length             | -                                              |
-| **Song Options**                |                                 |                                                |
-| `--song-codec`                  | Song codec                      | `aac-legacy`                                   |
-| `--synced-lyrics-format`        | Synced lyrics format            | `lrc`                                          |
-| `--no-synced-lyrics`            | Don't download synced lyrics    | `false`                                        |
-| `--synced-lyrics-only`          | Download only synced lyrics     | `false`                                        |
-| `--use-album-date`              | Use album release date for songs | `false`                                        |
-| `--fetch-extra-tags`            | Fetch extra tags from preview (normalization and smooth playback) | `false`                                        |
-| **Music Video Options**         |                                 |                                                |
-| `--music-video-codec-priority`  | Comma-separated codec priority  | `h264,h265`                                    |
-| `--music-video-remux-format`    | Music video remux format        | `m4v`                                          |
-| `--music-video-resolution`      | Max music video resolution      | `1080p`                                        |
-| **Post Video Options**          |                                 |                                                |
-| `--uploaded-video-quality`      | Post video quality              | `best`                                         |
+### 环境变量
 
-### Template Variables
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `GAMDL_CONFIG_PATH` | `/config` | 配置文件和数据库目录 |
+| `GAMDL_DOWNLOADS_PATH` | `/downloads` | 下载文件保存目录 |
+| `GAMDL_HOST` | `0.0.0.0` | 服务监听地址 |
+| `GAMDL_PORT` | `5800` | 服务监听端口 |
 
-Use these variables in folder/file templates or `--exclude-tags`:
+### Docker 卷挂载
 
-| Variable                                                                     | Description                                   |
-| ---------------------------------------------------------------------------- | --------------------------------------------- |
-| `{album}`, `{album_artist}`, `{album_id}`, `{album_sort}`                    | Album info                                    |
-| `{artist}`, `{artist_id}`, `{artist_sort}`                                   | Artist info                                   |
-| `{title}`, `{title_id}`, `{title_sort}`                                      | Title info                                    |
-| `{composer}`, `{composer_id}`, `{composer_sort}`                             | Composer info                                 |
-| `{track}`, `{track_total}`, `{disc}`, `{disc_total}`                         | Track numbers                                 |
-| `{genre}`, `{genre_id}`                                                      | Genre info                                    |
-| `{date}`                                                                     | Release date (supports strftime: `{date:%Y}`) |
-| `{playlist_artist}`, `{playlist_id}`, `{playlist_title}`, `{playlist_track}` | Playlist info                                 |
-| `{compilation}`, `{gapless}`, `{rating}`                                     | Media properties                              |
-| `{comment}`, `{copyright}`, `{lyrics}`, `{cover}`                            | Additional metadata                           |
-| `{media_type}`, `{storefront}`, `{xid}`                                      | Technical info                                |
-| `all`                                                                        | Special: Skip all tagging                     |
+| 容器路径 | 说明 |
+|----------|------|
+| `/config` | 配置目录，包含 `cookies.txt` 和 `tasks.db` |
+| `/downloads` | 下载文件保存目录 |
 
-### Logging Level
+## 🔧 API 接口
 
-- `DEBUG`, `INFO`, `WARNING`, `ERROR`
+服务启动后可以访问 http://localhost:5800/docs 查看完整的 API 文档。
 
-### Download Mode
+### 主要接口
 
-- `ytdlp`, `nm3u8dlre`
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/tasks` | 获取所有任务列表 |
+| POST | `/api/tasks` | 创建新任务 |
+| DELETE | `/api/tasks/{id}` | 删除任务 |
+| POST | `/api/tasks/{id}/restart` | 重启任务 |
+| POST | `/api/tasks/{id}/cancel` | 取消任务 |
+| PATCH | `/api/tasks/{id}/language` | 修改任务语言 |
+| POST | `/api/tasks/reset-all` | 重置所有任务 |
+| GET | `/api/settings/cookies` | 获取 Cookies 状态 |
+| POST | `/api/settings/cookies` | 更新 Cookies |
+| GET | `/api/health` | 健康检查 |
 
-### Remux Mode
+## 🐳 Docker 构建
 
-- `ffmpeg`
-- `mp4box` - Preserve the original closed caption track in music videos and some other minor metadata
+### 手动构建
 
-### Cover Format
-
-- `jpg`
-- `png`
-- `raw` - Raw format as provided by the artist (requires `save_cover` to be enabled as it doesn't embed covers into files)
-
-### Metadata Language
-
-Use ISO 639-1 language codes (e.g., `en-US`, `es-ES`, `ja-JP`, `pt-BR`). Don't always work for music videos.
-
-### Song Codecs
-
-**Stable:**
-
-- `aac-legacy` - AAC 256kbps 44.1kHz
-- `aac-he-legacy` - AAC-HE 64kbps 44.1kHz
-
-**Experimental** (may not work due to API limitations):
-
-- `aac` - AAC 256kbps up to 48kHz
-- `aac-he` - AAC-HE 64kbps up to 48kHz
-- `aac-binaural` - AAC 256kbps binaural
-- `aac-downmix` - AAC 256kbps downmix
-- `aac-he-binaural` - AAC-HE 64kbps binaural
-- `aac-he-downmix` - AAC-HE 64kbps downmix
-- `atmos` - Dolby Atmos 768kbps
-- `ac3` - AC3 640kbps
-- `alac` - ALAC up to 24-bit/192kHz (unsupported)
-- `ask` - Interactive experimental codec selection
-
-### Synced Lyrics Format
-
-- `lrc`
-- `srt` - SubRip subtitle format (more accurate timing)
-- `ttml` - Native Apple Music format (not compatible with most media players)
-
-### Music Video Codecs
-
-- `h264`
-- `h265`
-- `ask` - Interactive codec selection
-
-### Music Video Resolutions
-
-- H.264: `240p`, `360p`, `480p`, `540p`, `720p`, `1080p`
-- H.265 only: `1440p`, `2160p`
-
-### Music Video Remux Formats
-
-- `m4v`, `mp4`
-
-### Post Video Quality
-
-- `best` - Up to 1080p with AAC 256kbps
-- `ask` - Interactive quality selection
-
-## ⚙️ Wrapper & amdecrypt
-
-Use the [wrapper](https://github.com/WorldObservationLog/wrapper) and [amdecrypt](https://github.com/glomatico/amdecrypt) to download songs in ALAC and other experimental codecs without API limitations. Cookies are not required when using the wrapper.
-
-### Prerequisites
-
-- **[wrapper](https://github.com/WorldObservationLog/wrapper)** - Refer to the repository for installation
-- **[amdecrypt](https://github.com/glomatico/amdecrypt)** - Refer to the repository for installation
-- **[mp4decrypt](https://www.bento4.com/downloads/)** - Required by amdecrypt to decrypt protected files
-
-### Setup Instructions
-
-1. **Start the wrapper server** - Run the wrapper server
-2. **Enable wrapper in Gamdl** - Use `--use-wrapper` flag or set `use_wrapper = true` in config
-3. **Run Gamdl** - Download as usual with the wrapper enabled
-
-## 🐍 Embedding
-
-Use Gamdl as a library in your Python projects:
-
-```python
-import asyncio
-
-from gamdl.api import AppleMusicApi, ItunesApi
-from gamdl.downloader import (
-    AppleMusicBaseDownloader,
-    AppleMusicDownloader,
-    AppleMusicMusicVideoDownloader,
-    AppleMusicSongDownloader,
-    AppleMusicUploadedVideoDownloader,
-)
-from gamdl.interface import (
-    AppleMusicInterface,
-    AppleMusicMusicVideoInterface,
-    AppleMusicSongInterface,
-    AppleMusicUploadedVideoInterface,
-)
-
-async def main():
-    # Create AppleMusicApi instance (from cookies or wrapper)
-    apple_music_api = await AppleMusicApi.create_from_netscape_cookies(
-        cookies_path="cookies.txt",
-    )
-    itunes_api = ItunesApi(
-        apple_music_api.storefront,
-        apple_music_api.language,
-    )
-
-    # Check subscription
-    assert apple_music_api.active_subscription
-
-    # Set up interfaces
-    interface = AppleMusicInterface(apple_music_api, itunes_api)
-    song_interface = AppleMusicSongInterface(interface)
-    music_video_interface = AppleMusicMusicVideoInterface(interface)
-    uploaded_video_interface = AppleMusicUploadedVideoInterface(interface)
-
-    # Set up base downloader and specialized downloaders
-    base_downloader = AppleMusicBaseDownloader()
-    song_downloader = AppleMusicSongDownloader(
-        base_downloader=base_downloader,
-        interface=song_interface,
-    )
-    music_video_downloader = AppleMusicMusicVideoDownloader(
-        base_downloader=base_downloader,
-        interface=music_video_interface,
-    )
-    uploaded_video_downloader = AppleMusicUploadedVideoDownloader(
-        base_downloader=base_downloader,
-        interface=uploaded_video_interface,
-    )
-
-    # Main downloader
-    downloader = AppleMusicDownloader(
-        interface=interface,
-        base_downloader=base_downloader,
-        song_downloader=song_downloader,
-        music_video_downloader=music_video_downloader,
-        uploaded_video_downloader=uploaded_video_downloader,
-    )
-
-    # Download a song
-    url = "https://music.apple.com/us/album/never-gonna-give-you-up-2022-remaster/1624945511?i=1624945512"
-    url_info = downloader.get_url_info(url)
-    if url_info:
-        download_queue = await downloader.get_download_queue(url_info)
-        if download_queue:
-            for download_item in download_queue:
-                await downloader.download(download_item)
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
+```bash
+docker build -t gamdl-web:latest .
 ```
 
-## 📄 License
+### GitHub Actions
 
-MIT License - see [LICENSE](LICENSE) file for details
+项目配置了 GitHub Actions 自动构建，当推送版本标签时会自动构建并推送到 Docker Hub：
 
-## 🤝 Contributing
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
 
-Currently, I'm not interested in reviewing pull requests that change or add features. Only critical bug fixes will be considered. However, feel free to open issues for bugs or feature requests.
+需要在 GitHub 仓库设置中配置以下 Secrets：
+- `DOCKERHUB_USERNAME`: Docker Hub 用户名
+- `DOCKERHUB_TOKEN`: Docker Hub 访问令牌
+
+## 📄 许可证
+
+MIT License - 详见 [LICENSE](LICENSE) 文件
+
+## 🙏 致谢
+
+- [Gamdl](https://github.com/glomatico/gamdl) - 核心下载功能
+- [FastAPI](https://fastapi.tiangolo.com/) - Web 框架
+- [SQLModel](https://sqlmodel.tiangolo.com/) - 数据库 ORM

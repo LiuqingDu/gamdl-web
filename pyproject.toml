@@ -9,12 +9,15 @@ dependencies = [
     "async-lru>=2.0.5",
     "click>=8.3.0",
     "colorama>=0.4.6",
+    "fastapi>=0.115.0",
     "httpx>=0.28.1",
     "inquirerpy>=0.3.4",
     "m3u8>=6.0.0",
     "mutagen>=1.47.0",
     "pillow>=12.0.0",
     "pywidevine>=1.8.0",
+    "sqlmodel>=0.0.22",
+    "uvicorn>=0.32.0",
     "yt-dlp>=2025.10.22",
 ]
 
@@ -23,3 +26,10 @@ Repository = "https://github.com/glomatico/gamdl"
 
 [project.scripts]
 gamdl = "gamdl.cli.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatchling.build.targets.wheel]
+packages = ["gamdl", "web"]

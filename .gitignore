@@ -6,3 +6,9 @@ __pycache__
 !pyproject.toml
 !README.md
 !uv.lock
+!requirements.md
+!web
+!Dockerfile
+!docker-compose.yml
+!.dockerignore
+!.github
