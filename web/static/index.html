@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apple Music 下载器</title>
+    <meta name="description" content="Apple Music 歌曲下载工具">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- 头部 -->
+        <header class="header">
+            <h1 class="title">🎵 Apple Music 下载器</h1>
+            <button class="btn btn-icon" id="settings-btn" title="设置">⚙️</button>
+        </header>
+
+        <!-- 输入区域 -->
+        <div class="input-section">
+            <input type="text"
+                   id="url-input"
+                   class="input"
+                   placeholder="输入 Apple Music 链接">
+            <select id="language-select" class="select">
+                <option value="zh-CN">中文</option>
+                <option value="en-US">English</option>
+            </select>
+            <button class="btn btn-primary" id="download-btn">下载</button>
+            <button class="btn btn-secondary" id="refresh-btn">刷新</button>
+        </div>
+
+        <!-- 日志显示 -->
+        <div class="log-section" id="log-section">
+            <span class="log-label">当前日志:</span>
+            <span class="log-content" id="log-content"></span>
+        </div>
+
+        <!-- 任务列表 -->
+        <div class="task-list" id="task-list">
+            <!-- 任务列表将通过JS动态渲染 -->
+        </div>
+
+        <!-- 重置所有任务按钮 -->
+        <div class="footer-actions">
+            <button class="btn btn-warning" id="reset-all-btn">重新下载所有任务</button>
+        </div>
+    </div>
+
+    <!-- 设置弹窗 -->
+    <div class="modal" id="settings-modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2>⚙️ 设置</h2>
+                <button class="btn btn-icon" id="close-modal-btn">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="cookies-input">Cookies (cookies.txt)</label>
+                    <textarea id="cookies-input"
+                              class="textarea"
+                              placeholder="粘贴你的 cookies.txt 内容..."></textarea>
+                    <div class="cookies-status" id="cookies-status">
+                        状态: 检查中...
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="config-input">配置文件 (config.ini)</label>
+                    <textarea id="config-input"
+                              class="textarea"
+                              placeholder="配置文件内容..."></textarea>
+                    <div class="cookies-status" id="config-status">
+                        状态: 检查中...
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="save-settings-btn">保存全部</button>
+                <button class="btn btn-secondary" id="cancel-settings-btn">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/app.js"></script>
+</body>
+</html>
