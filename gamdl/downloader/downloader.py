@@ -150,14 +150,12 @@ class AppleMusicDownloader:
         artist_metadata: dict,
     ) -> list[DownloadItem]:
         for relationship in artist_metadata["relationships"].keys():
-            artist_metadata["relationships"][relationship]["data"].extend(
-                [
-                    extended_data
-                    async for extended_data in self.interface.apple_music_api.extend_api_data(
-                        artist_metadata["relationships"][relationship],
-                    )
-                ]
-            )
+            async for extended_data in self.interface.apple_music_api.extend_api_data(
+                artist_metadata["relationships"][relationship],
+            ):
+                artist_metadata["relationships"][relationship]["data"].extend(
+                    extended_data["data"]
+                )
 
         media_type = "albums"
 
