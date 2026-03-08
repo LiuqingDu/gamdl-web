@@ -73,7 +73,6 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 # 复制项目依赖配置文件和源代码
 COPY pyproject.toml uv.lock README.md ./
-COPY gamdl ./gamdl
 COPY web ./web
 
 # 使用 uv sync 安装项目依赖

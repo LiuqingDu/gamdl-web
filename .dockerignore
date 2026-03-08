@@ -2,13 +2,11 @@
 *
 
 # 只保留Docker构建需要的文件
-!gamdl
 !web
 !pyproject.toml
 !uv.lock
 !README.md
 
 # 排除Python缓存
-gamdl/__pycache__
 web/__pycache__
 **/__pycache__
