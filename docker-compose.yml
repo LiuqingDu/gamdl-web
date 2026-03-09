@@ -2,8 +2,9 @@ services:
   gamdl-web:
     build: .
     container_name: gamdl-web
-    ports:
-      - "5800:5800"
+    network_mode: host
+    # ports:
+    #   - "5800:5800"
     volumes:
       # 配置文件目录（包含cookies.txt和tasks.db）
       - ./config:/config
