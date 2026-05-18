@@ -1,6 +1,6 @@
 [project]
 name = "gamdl-web"
-version = "0.1.0"
+version = "0.2.0"
 description = "Apple Music Web 下载器 (基于 FastAPI + UV)"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -8,7 +8,7 @@ dependencies = [
     "fastapi>=0.115.0",
     "sqlmodel>=0.0.22",
     "uvicorn>=0.32.0",
-    "gamdl>=2.9.3",
+    "gamdl>=3.5.2",
 ]
 
 [build-system]
