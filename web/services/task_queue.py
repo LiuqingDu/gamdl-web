@@ -7,6 +7,7 @@
 import subprocess
 import threading
 import logging
+import time
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -52,10 +53,13 @@ class TaskQueue:
     def _process_pending_task(self) -> None:
         """处理待处理任务的内部方法"""
         try:
-            # 获取待处理任务
+            # 获取待处理任务（按 created_at 降序，优先下载最近创建的任务）
             with get_session() as session:
                 task = session.exec(
-                    select(Task).where(Task.status == TaskStatus.PENDING).limit(1)
+                    select(Task)
+                    .where(Task.status == TaskStatus.PENDING)
+                    .order_by(Task.created_at.desc())
+                    .limit(1)
                 ).first()
 
                 if not task:
@@ -88,7 +92,10 @@ class TaskQueue:
             # 检查是否还有待处理任务
             with get_session() as session:
                 has_pending = session.exec(
-                    select(Task).where(Task.status == TaskStatus.PENDING).limit(1)
+                    select(Task)
+                    .where(Task.status == TaskStatus.PENDING)
+                    .order_by(Task.created_at.desc())
+                    .limit(1)
                 ).first()
 
                 if has_pending:
@@ -104,6 +111,10 @@ class TaskQueue:
     ) -> None:
         """执行下载任务"""
         logger.info(f"开始下载任务: {task_id}, 名称: {name}, 语言: {language}, 覆盖: {overwrite}")
+
+        max_retries = 3
+        status = TaskStatus.ERROR
+        last_is_429 = False
 
         try:
             # 构建下载命令
@@ -125,28 +136,61 @@ class TaskQueue:
             if overwrite:
                 command += ' --overwrite'
 
-            logger.info(f"执行命令: {command}")
+            for attempt in range(max_retries + 1):
+                if attempt > 0:
+                    logger.info(f"执行命令 (第 {attempt}/{max_retries} 次重试): {command}")
+                    self._set_current_log(f"开始下载 (第 {attempt}/{max_retries} 次重试)...")
+                else:
+                    logger.info(f"执行命令 (首次尝试): {command}")
+                    self._set_current_log("开始下载...")
 
-            # 执行命令
-            process = subprocess.Popen(
-                command,
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                universal_newlines=True
-            )
+                process = subprocess.Popen(
+                    command,
+                    shell=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    universal_newlines=True
+                )
 
-            # 读取输出
-            for line in process.stdout:
-                line = line.strip()
-                self._set_current_log(line)
-                logger.info(f"[{task_id}] {line}")
+                output_log = []
+                for line in process.stdout:
+                    line = line.strip()
+                    if line:
+                        output_log.append(line)
+                        self._set_current_log(line)
+                        logger.info(f"[{task_id}] {line}")
 
-            process.wait()
+                process.wait()
 
-            # 根据返回码更新状态
-            status = TaskStatus.COMPLETED if process.returncode == 0 else TaskStatus.ERROR
+                if process.returncode == 0:
+                    status = TaskStatus.COMPLETED
+                    last_is_429 = False
+                    break
+                else:
+                    full_output = " ".join(output_log)
+                    is_429 = "429" in full_output or "Too Many Requests" in full_output
+                    last_is_429 = is_429
 
+                    if attempt < max_retries:
+                        if is_429:
+                            # 429重试间隔：第1次1分钟(60s)，第2次2分钟(120s)，第3次3分钟(180s)
+                            wait_seconds = (attempt + 1) * 60
+                            reason = "触发频率限制(429)"
+                        else:
+                            # 其他普通错误间隔 10s
+                            wait_seconds = 10
+                            reason = f"异常错误 (返回码 {process.returncode})"
+
+                        logger.warning(f"任务 {task_id} 下载失败 [{reason}]，准备在 {wait_seconds} 秒后进行第 {attempt + 1}/{max_retries} 次重试...")
+
+                        for rem in range(wait_seconds, 0, -1):
+                            self._set_current_log(f"下载异常 [{reason}]，等待 {rem}s 后重试 ({attempt + 1}/{max_retries})...")
+                            time.sleep(1)
+                    else:
+                        logger.error(f"任务 {task_id} 经过 {max_retries} 次重试后最终失败。")
+                        status = TaskStatus.ERROR
+
+            # 更新数据库状态
             with get_session() as session:
                 task = session.get(Task, task_id)
                 if task:
@@ -160,8 +204,20 @@ class TaskQueue:
 
             if status == TaskStatus.COMPLETED:
                 logger.info(f"任务 {task_id} ({name}) 下载成功")
+                # 成功后，常规冷却缓冲 3 秒
+                self._set_current_log("任务结束，冷却缓冲中 (3s)...")
+                time.sleep(3)
             else:
-                logger.error(f"任务 {task_id} ({name}) 下载失败，返回码: {process.returncode}")
+                logger.error(f"任务 {task_id} ({name}) 下载最终失败")
+                # 如果三次重试依然失败且触发了 429，则在继续下一个任务前强制等待 3 分钟 (180s)
+                if last_is_429:
+                    logger.warning(f"任务 {task_id} 遭遇严重限流失败，暂停队列 3 分钟后继续处理下一个任务...")
+                    for rem in range(180, 0, -1):
+                        self._set_current_log(f"遭遇频繁请求限制，队列冷却缓冲中 ({rem}s)...")
+                        time.sleep(1)
+                else:
+                    self._set_current_log("任务下载失败，缓冲中 (3s)...")
+                    time.sleep(3)
 
         except Exception as e:
             logger.error(f"任务 {task_id} 下载过程中发生错误: {e}")
