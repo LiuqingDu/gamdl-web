@@ -8,7 +8,7 @@ dependencies = [
     "fastapi>=0.115.0",
     "sqlmodel>=0.0.22",
     "uvicorn>=0.32.0",
-    "gamdl>=3.5.2",
+    "gamdl>=3.7.3",
 ]
 
 [build-system]

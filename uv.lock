@@ -263,7 +263,7 @@ wheels = [
 
 [[package]]
 name = "gamdl"
-version = "3.5.2"
+version = "3.7.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "async-lru" },
@@ -280,9 +280,9 @@ dependencies = [
     { name = "structlog" },
     { name = "yt-dlp" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/30/c2/f86c25c17dffc1dc04a36a09bc529814e3da002682ca6cd246225f94e333/gamdl-3.5.2.tar.gz", hash = "sha256:d267e8975d3a5cf3d9e944c88b7105578a38febce42c58d8523434036895f1b7", size = 68598, upload-time = "2026-05-13T23:27:41.371Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/99/00/5386a460f6faa696c83bb5a242e19e9bc5dc8f0d2b24876baedde1f1b0c8/gamdl-3.7.3.tar.gz", hash = "sha256:1cfac12e2a040821f168ce0999de5fb408a52c64753741ce14846a5222b07f17", size = 81630, upload-time = "2026-05-28T20:30:25.467Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/69/f4/c18b735dc2c65833575961cd24f2165d65267a77ff88e99ab2f6add92c00/gamdl-3.5.2-py3-none-any.whl", hash = "sha256:be461d31677d3523d8bc59ba4701a4757e2298eb8dbf0dc67910f62ea224bd0d", size = 75205, upload-time = "2026-05-13T23:27:40.113Z" },
+    { url = "https://files.pythonhosted.org/packages/a5/f3/605ca452dd0c92b45e9e8de5cf52dcb8f43d2e7915f907f014d66b63294b/gamdl-3.7.3-py3-none-any.whl", hash = "sha256:192365f5762440f6951e77f5fc35640ae84030762b3ee097fb1228f2f5d17758", size = 88670, upload-time = "2026-05-28T20:30:24.02Z" },
 ]
 
 [[package]]
@@ -299,7 +299,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.115.0" },
-    { name = "gamdl", specifier = ">=3.5.2" },
+    { name = "gamdl", specifier = ">=3.7.3" },
     { name = "sqlmodel", specifier = ">=0.0.22" },
     { name = "uvicorn", specifier = ">=0.32.0" },
 ]
