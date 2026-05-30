@@ -122,6 +122,7 @@ class TaskQueue:
             config_file_path = settings.CONFIG_FILE_PATH
             cookies_path = settings.COOKIES_PATH
             output_path = settings.DOWNLOADS_PATH
+            database_path = settings.GAMDL_DATABASE_PATH
 
             # 用户要求的简洁命令格式：gamdl ${url} --config-path ${config路径} -l ${language}
             command = (
@@ -129,6 +130,7 @@ class TaskQueue:
                 f'--config-path "{config_file_path}" '
                 f'-c "{cookies_path}" '
                 f'-o "{output_path}" '
+                f'--database-path "{database_path}" '
                 f'-l {language}'
             )
 

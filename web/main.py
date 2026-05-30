@@ -76,9 +76,9 @@ async def init_config():
 
     # 运行 gamdl 生成默认配置（会在 ~/.gamdl/config.ini 生成）
     try:
-        # 运行一次无参数的 gamdl，它会自动创建配置文件
+        # 使用 dummy_url 强制触发参数解析和配置生成，同时利用 -c /dev/null 防止因缺失 cookie 文件而阻塞
         process = subprocess.run(
-            ["gamdl", "--help"],  # 使用 --help 避免交互
+            ["gamdl", "dummy_url"],
             capture_output=True,
             text=True,
             timeout=30

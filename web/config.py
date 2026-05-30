@@ -24,6 +24,11 @@ class Settings:
     def DATABASE_PATH(self) -> Path:
         return self.CONFIG_PATH / "tasks.db"
 
+    # gamdl 内部的去重数据库配置
+    @property
+    def GAMDL_DATABASE_PATH(self) -> Path:
+        return self.CONFIG_PATH / "database.db"
+
     # Cookies配置
     @property
     def COOKIES_PATH(self) -> Path:
