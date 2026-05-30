@@ -124,6 +124,12 @@ class TaskQueue:
             output_path = settings.DOWNLOADS_PATH
             database_path = settings.GAMDL_DATABASE_PATH
 
+            # 根据语言选择对应的 wrapper 服务
+            if "zh" in language.lower():
+                wrapper_url = "http://wrapper-zh:80"
+            else:
+                wrapper_url = "http://wrapper-en:80"
+
             # 用户要求的简洁命令格式：gamdl ${url} --config-path ${config路径} -l ${language}
             command = (
                 f'gamdl "{url}" '
@@ -131,6 +137,7 @@ class TaskQueue:
                 f'-c "{cookies_path}" '
                 f'-o "{output_path}" '
                 f'--database-path "{database_path}" '
+                f'--wrapper-url "{wrapper_url}" '
                 f'-l {language}'
             )
 
