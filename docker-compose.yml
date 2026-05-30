@@ -1,20 +1,29 @@
 services:
+  # ==========================================
+  # 1. 核心下载服务：gamdl-web
+  # ==========================================
   gamdl-web:
-    build: .
+    image: sleky/gamdl-web:latest
     container_name: gamdl-web
-    network_mode: host
-    # ports:
-    #   - "5800:5800"
+    # 依赖声明：确保两个解密服务先于它启动
+    depends_on:
+      - wrapper-en
+      - wrapper-zh
+    ports:
+      - "5800:5800"
     volumes:
       # 配置文件目录（包含cookies.txt和tasks.db）
-      - ./config:/config
-      # 下载目录
-      - ./downloads:/downloads
+      - /vol1/1000/appConfig/gamdl-web/config:/config
+      # 下载音乐存放目录
+      - /vol2/1000/MEDIA/music:/downloads
     environment:
       - GAMDL_CONFIG_PATH=/config
       - GAMDL_DOWNLOADS_PATH=/downloads
       - GAMDL_HOST=0.0.0.0
       - GAMDL_PORT=5800
+      # 注意：如果您在这个文件里或者后台页面里配置 Wrapper 地址，
+      # 想下英文歌名，请填入：http://wrapper-en:80
+      # 想下中文歌名，请填入：http://wrapper-zh:80
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -26,3 +35,50 @@ services:
       interval: 30s
       timeout: 3s
       retries: 3
+  # ==========================================
+  # 2. 解密网关节点 A：纯净英文版 (宿主机端口 10010)
+  # ==========================================
+  wrapper-en:
+    image: sleky/wrapper-v2:latest
+    container_name: wrapper-en
+    restart: unless-stopped
+    # 必须的高级权限，用于加载 Apple 原生库
+    cap_add:
+      - SYS_ADMIN
+      - SYS_CHROOT
+      - SYS_PTRACE
+    security_opt:
+      - apparmor:unconfined
+    ports:
+      # 暴露到 N100 宿主机的 10010，供您最初用终端执行 curl 登录账号使用
+      - "10010:80"
+    volumes:
+      # 数据存储路径：必须与中文版隔离开
+      - /vol1/1000/appConfig/wrapper-en/data:/app/rootfs/data/data/com.apple.android.music/files
+    environment:
+      # 默认的英文环境指纹，Locale 和 Language 为 en-US/en-US
+      # 设备序列号(Android ID) 以 39e 结尾
+      - WRAPPER_DEVICE_INFO=Music/4.9/Android/10/Samsung S9/7663313/en-US/en-US/dc28071e981c439e
+  # ==========================================
+  # 3. 解密网关节点 B：强制中文版 (宿主机端口 10011)
+  # ==========================================
+  wrapper-zh:
+    image: sleky/wrapper-v2:latest
+    container_name: wrapper-zh
+    restart: unless-stopped
+    cap_add:
+      - SYS_ADMIN
+      - SYS_CHROOT
+      - SYS_PTRACE
+    security_opt:
+      - apparmor:unconfined
+    ports:
+      # 暴露到 N100 宿主机的 10011，供您最初用终端执行 curl 登录账号使用
+      - "10011:80"
+    volumes:
+      # 数据存储路径：必须与英文版隔离开
+      - /vol1/1000/appConfig/wrapper-zh/data:/app/rootfs/data/data/com.apple.android.music/files
+    environment:
+      # 【核心改动 1】将地区和语言改为 zh-CN/zh-CN
+      # 【核心改动 2】把设备序列号最后一位的 e 改成 f，伪装成您买的第二台安卓手机，防风控！
+      - WRAPPER_DEVICE_INFO=Music/4.9/Android/10/Samsung S9/7663313/zh-CN/zh-CN/dc28071e981c439f
