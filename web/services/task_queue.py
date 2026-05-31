@@ -115,6 +115,7 @@ class TaskQueue:
         max_retries = 3
         status = TaskStatus.ERROR
         last_is_429 = False
+        has_error = False
 
         try:
             # 构建下载命令
@@ -169,10 +170,31 @@ class TaskQueue:
                         self._set_current_log(line)
                         logger.info(f"[{task_id}] {line}")
 
+                        is_real_error = False
+                        if "Error downloading" in line or "Error processing" in line:
+                            is_real_error = True
+                        elif "Skipping" in line:
+                            # 忽略 "已经下载过了" 的情况
+                            if "Media file already exists" not in line and "Media excluded by flat filter" not in line:
+                                is_real_error = True
+
+                        if is_real_error:
+                            if not has_error:
+                                has_error = True
+                            
+                            # 记录错误行到 config 目录下的文本文件
+                            error_log_file = settings.CONFIG_PATH / "error_downloads.log"
+                            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            try:
+                                with open(error_log_file, "a", encoding="utf-8") as f:
+                                    f.write(f"[{timestamp}] TaskID: {task_id} | Name: {name} | URL: {url} | Error: {line}\n")
+                            except Exception as write_err:
+                                logger.error(f"无法写入错误日志文件: {write_err}")
+
                 process.wait()
 
                 if process.returncode == 0:
-                    status = TaskStatus.COMPLETED
+                    status = TaskStatus.ERROR if has_error else TaskStatus.COMPLETED
                     last_is_429 = False
                     break
                 else:

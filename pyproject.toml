@@ -1,6 +1,6 @@
 [project]
 name = "gamdl-web"
-version = "0.2.0"
+version = "0.9.3"
 description = "Apple Music Web 下载器 (基于 FastAPI + UV)"
 readme = "README.md"
 requires-python = ">=3.10"
